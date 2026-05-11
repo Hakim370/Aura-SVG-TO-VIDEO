@@ -63,7 +63,7 @@ export function Header({ activeTab, onTabChange, user }: HeaderProps) {
           >
             ✦ SVG PLAYGROUND
           </button>
-          {(!user || user?.email === 'hakimmia370@gmail.com') && (
+          {user?.email === 'hakimmia370@gmail.com' && (
             <button 
               type="button"
               onClick={() => onTabChange('admin')}

@@ -11,7 +11,7 @@ import { GiftraTool } from './components/GiftraTool';
 import { Playground } from './components/Playground';
 import { AdminDashboard } from './components/AdminDashboard';
 import { Toaster, toast } from 'react-hot-toast';
-import { auth, db } from './lib/firebase';
+import { auth, db, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
