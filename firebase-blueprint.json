@@ -43,6 +43,19 @@
     "/exports/{exportId}": {
       "schema": "Export",
       "description": "Global export logs for admin tracking"
+    },
+    "/settings/{settingId}": {
+      "schema": {
+        "title": "Setting",
+        "type": "object",
+        "properties": {
+          "adminPin": { "type": "string" },
+          "news": { "type": "string" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "updatedBy": { "type": "string" }
+        }
+      },
+      "description": "Global application settings including security and billboard news"
     }
   }
 }

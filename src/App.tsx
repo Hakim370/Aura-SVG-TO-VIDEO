@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Ticker } from './components/Ticker';
 import { VectraTool } from './components/VectraTool';
+import { GiftraTool } from './components/GiftraTool';
 import { Playground } from './components/Playground';
 import { AdminDashboard } from './components/AdminDashboard';
 import { Toaster, toast } from 'react-hot-toast';
@@ -14,7 +15,7 @@ import { auth, db } from './lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-export type Tab = 'aura' | 'playground' | 'admin';
+export type Tab = 'aura' | 'playground' | 'gif' | 'admin';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('aura');
@@ -99,6 +100,9 @@ export default function App() {
         )}
         {activeTab === 'playground' && (
           <Playground onSendToAura={handleSendToAura} />
+        )}
+        {activeTab === 'gif' && (
+          <GiftraTool initialSVG={playgroundSVG} clearInitialSVG={() => setPlaygroundSVG(null)} />
         )}
         {activeTab === 'admin' && (
           <AdminDashboard />

@@ -17,8 +17,8 @@ import {
   Settings as LucideSettings
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, getDocs, orderBy, limit } from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType, loginWithGoogle } from '../lib/firebase';
+import { collection, query, onSnapshot, doc, updateDoc, getDocs, orderBy, limit, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface AppUser {
   uid: string;
@@ -37,6 +37,7 @@ export function AdminDashboard() {
   const [passcode, setPasscode] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'system' | 'users'>('system');
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalExportsAcrossUsers: 0,
@@ -44,15 +45,46 @@ export function AdminDashboard() {
     uptime: '00:00:00'
   });
 
+  const [dbPin, setDbPin] = useState('1337');
+  const [newPin, setNewPin] = useState('');
+
   const [engineSettings, setEngineSettings] = useState({
     maxDuration: 60,
     maxFPS: 60,
     highEfficiencyMode: true,
-    autoPurge: true
+    autoPurge: true,
+    news: ''
   });
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
   // Calculate session stats
   useEffect(() => {
+    // Check if user is admin in Firestore
+    if (auth.currentUser) {
+      const adminRef = doc(db, 'admins', auth.currentUser.uid);
+      getDoc(adminRef).then(snap => {
+        setIsAdminUser(snap.exists());
+      });
+    }
+
+    // Fetch global settings
+    const fetchSettings = async () => {
+      const snap = await getDoc(doc(db, 'settings', 'global'));
+      if (snap.exists()) {
+        const data = snap.data();
+        setEngineSettings(prev => ({
+          ...prev,
+          news: data.news || ''
+        }));
+      }
+
+      // Fetch Security PIN
+      const secSnap = await getDoc(doc(db, 'settings', 'security'));
+      if (secSnap.exists()) {
+        setDbPin(secSnap.data().adminPin || '1337');
+      }
+    };
+    fetchSettings();
     const startTime = Date.now();
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -114,11 +146,61 @@ export function AdminDashboard() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === '1337') {
+    if (passcode === dbPin) {
       setIsAuthenticated(true);
       toast.success('Admin access granted');
     } else {
       toast.error('Invalid clearance code');
+    }
+  };
+
+  const updateAdminPin = async () => {
+    if (!newPin || newPin.length < 4) {
+      toast.error('PIN must be at least 4 characters');
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'settings', 'security'), {
+        adminPin: newPin,
+        updatedAt: serverTimestamp(),
+        updatedBy: auth.currentUser?.email
+      }, { merge: true });
+      setDbPin(newPin);
+      setNewPin('');
+      toast.success('Admin access PIN updated successfully');
+    } catch (err) {
+      toast.error('Failed to update PIN');
+    }
+  };
+
+  const initializeAdmin = async () => {
+    if (!auth.currentUser) {
+      toast.error('Please sign in with Google first');
+      loginWithGoogle();
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'admins', auth.currentUser.uid), {
+        email: auth.currentUser.email,
+        role: 'master',
+        createdAt: serverTimestamp()
+      });
+      setIsAdminUser(true);
+      toast.success('Admin role initialized');
+    } catch (err) {
+      toast.error('Failed to initialize admin role');
+    }
+  };
+
+  const saveSettings = async () => {
+    try {
+      await setDoc(doc(db, 'settings', 'global'), {
+        news: engineSettings.news,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      toast.success('Global settings updated');
+    } catch (err) {
+      toast.error('Failed to save settings');
     }
   };
 
@@ -150,6 +232,16 @@ export function AdminDashboard() {
                 INITIALIZE COMMAND
               </button>
             </form>
+
+            {auth.currentUser?.email === 'hakimmia370@gmail.com' && !isAdminUser && (
+              <button 
+                onClick={initializeAdmin}
+                className="mt-4 w-full py-3 bg-cyan-glow/10 border border-cyan-glow/30 text-cyan-glow font-bold text-[10px] tracking-widest uppercase rounded-xl hover:bg-cyan-glow hover:text-black transition-all"
+              >
+                Promote to Admin Role
+              </button>
+            )}
+
             <p className="mt-8 font-mono text-[8px] text-text-dim uppercase tracking-widest opacity-30">
               ID: AIS-CORE-ALPHA-9 // HAKIM ULLAH
             </p>
@@ -278,20 +370,87 @@ export function AdminDashboard() {
                       </div>
                     </button>
                   </div>
+
+                    <div className="space-y-4 pt-6 border-t border-border-b1">
+                    <label className="font-mono text-[9px] text-text-dim tracking-widest uppercase">Global Billboard (Ad/News Box)</label>
+                    <textarea 
+                      value={engineSettings.news}
+                      onChange={(e) => setEngineSettings({...engineSettings, news: e.target.value})}
+                      placeholder="Enter news or ad content here..."
+                      className="w-full bg-s2 border border-border-b2 rounded-2xl p-4 text-xs font-mono text-text-main min-h-[120px] outline-none focus:border-cyan-glow/50"
+                    />
+                    <button 
+                      onClick={saveSettings}
+                      className="px-6 py-3 bg-cyan-glow/10 border border-cyan-glow/30 text-cyan-glow font-bold text-[10px] tracking-widest uppercase rounded-xl hover:bg-cyan-glow hover:text-black transition-all"
+                    >
+                      Update Global Billboard
+                    </button>
+                  </div>
+
+                  <div className="space-y-4 pt-8 border-t border-border-b1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <LucideLock size={14} className="text-pink-glow" />
+                      <label className="font-mono text-[9px] text-pink-glow tracking-widest uppercase font-bold">Security Override: Access PIN</label>
+                    </div>
+                    <div className="flex gap-4">
+                      <input 
+                        type="text" 
+                        value={newPin}
+                        onChange={(e) => setNewPin(e.target.value)}
+                        placeholder="Enter New PIN"
+                        className="flex-1 bg-s2 border border-border-b2 rounded-xl px-4 py-3 text-xs font-mono text-text-main outline-none focus:border-pink-glow/50"
+                      />
+                      <button 
+                        onClick={updateAdminPin}
+                        className="px-6 py-3 bg-pink-glow/10 border border-pink-glow/30 text-pink-glow font-bold text-[10px] tracking-widest uppercase rounded-xl hover:bg-pink-glow hover:text-white transition-all"
+                      >
+                        Change PIN
+                      </button>
+                    </div>
+                    <p className="font-mono text-[8px] text-text-dim uppercase tracking-widest">Current Active PIN starts with: {dbPin.slice(0, 2)}***</p>
+                  </div>
                 </div>
               </div>
             </>
           ) : (
             <>
+              {/* User Analytics Summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-s1 border border-border-b1 rounded-2xl p-6 flex flex-col gap-2 relative overflow-hidden group">
+                  <LucideUsers className="text-purple-glow opacity-20 absolute -right-2 -bottom-2 w-16 h-16" />
+                  <span className="font-mono text-[9px] text-text-dim tracking-widest uppercase">Verified Users</span>
+                  <div className="text-3xl font-black text-white tracking-tighter font-mono">{users.length}</div>
+                </div>
+                <div className="bg-s1 border border-border-b1 rounded-2xl p-6 flex flex-col gap-2 relative overflow-hidden group">
+                  <LucideCheckCircle2 className="text-green-glow opacity-20 absolute -right-2 -bottom-2 w-16 h-16" />
+                  <span className="font-mono text-[9px] text-text-dim tracking-widest uppercase">Active (Non-Blocked)</span>
+                  <div className="text-3xl font-black text-green-glow tracking-tighter font-mono">
+                    {users.filter(u => !u.isBlocked).length}
+                  </div>
+                </div>
+              </div>
+
               {/* User Admin View */}
               <div className="bg-s1 border border-border-b1 rounded-3xl overflow-hidden min-h-[600px] flex flex-col">
-                <div className="px-6 py-4 border-b border-border-b1 bg-gradient-to-r from-purple-glow/5 to-transparent flex items-center justify-between">
+                <div className="px-6 py-4 border-b border-border-b1 bg-gradient-to-r from-purple-glow/5 to-transparent flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <LucideUsers size={18} className="text-purple-glow" />
                     <h2 className="font-mono text-[10px] font-bold tracking-[3px] text-text-dim uppercase">Registered User Base</h2>
                   </div>
+                  
+                  <div className="relative flex-1 max-w-sm">
+                    <input 
+                      type="text"
+                      placeholder="Search email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full bg-black/30 border border-border-b1 rounded-xl py-2 px-4 pl-10 text-[11px] font-mono text-white outline-none focus:border-purple-glow/50 transition-all"
+                    />
+                    <LucideUsers size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim opacity-40" />
+                  </div>
+
                   <span className="font-mono text-[9px] bg-purple-glow/10 px-3 py-1 rounded-full border border-purple-glow/20 text-purple-glow">
-                    {users.length} ACTIVE SESSIONS
+                    {users.filter(u => u.email.toLowerCase().includes(searchTerm.toLowerCase())).length} RESULT(S)
                   </span>
                 </div>
                 
@@ -299,7 +458,7 @@ export function AdminDashboard() {
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="border-b border-border-b1 bg-black/20">
-                        <th className="px-6 py-4 text-left font-mono text-[8px] text-text-dim tracking-widest uppercase uppercase">User Details</th>
+                        <th className="px-6 py-4 text-left font-mono text-[8px] text-text-dim tracking-widest uppercase">User Details</th>
                         <th className="px-6 py-4 text-center font-mono text-[8px] text-text-dim tracking-widest uppercase">Exports</th>
                         <th className="px-6 py-4 text-center font-mono text-[8px] text-text-dim tracking-widest uppercase">Limit</th>
                         <th className="px-6 py-4 text-center font-mono text-[8px] text-text-dim tracking-widest uppercase">Status</th>
@@ -307,7 +466,10 @@ export function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border-b1">
-                      {users.map(u => (
+                      {users
+                        .filter(u => u.email.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                     u.displayName.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .map(u => (
                         <tr key={u.uid} className={cn("hover:bg-white/[0.02] transition-all", u.isBlocked && "opacity-50 grayscale")}>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
