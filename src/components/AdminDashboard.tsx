@@ -17,7 +17,7 @@ import {
   Settings as LucideSettings
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, updateDoc, getDocs, orderBy, limit } from 'firebase/firestore';
 
 interface AppUser {
@@ -85,6 +85,8 @@ export function AdminDashboard() {
         totalUsers: usersList.length,
         totalExportsAcrossUsers: totalExports
       }));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
     });
 
     return () => unsubscribe();

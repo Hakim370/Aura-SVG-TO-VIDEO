@@ -1,12 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
+    // --- Global Safety Net ---
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // --- Helpers ---
+    // --- Global Helpers ---
     function isSignedIn() {
       return request.auth != null;
     }
@@ -21,7 +21,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'hakimmia370@gmail.com' ||
+        (request.auth.token.email == 'hakimmia370@gmail.com' && request.auth.token.email_verified == true) ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
@@ -32,6 +32,13 @@ service cloud.firestore {
 
     function existing() {
       return resource.data;
+    }
+
+    // --- Entity Validation ---
+    function isValidUser(data) {
+      return data.uid is string && 
+             data.email is string && 
+             data.role in ['user', 'admin'];
     }
 
     // --- Collection Rules ---
@@ -45,18 +52,22 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       
+      // Allow creation of user doc for themselves
       allow create: if isOwner(userId);
       
-      allow update: if (isOwner(userId) && 
-                         incoming().get('role', 'user') == existing().get('role', 'user') &&
-                         incoming().get('exportLimit', 5) == existing().get('exportLimit', 5) &&
-                         incoming().get('isBlocked', false) == existing().get('isBlocked', false))
-                     || isAdmin();
+      // Update rules:
+      // Admins can update anything.
+      // Owners can only update their lastLogin and exportCount (internal sync).
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        incoming().diff(existing()).affectedKeys().hasOnly(['lastLogin', 'exportCount'])
+      );
     }
 
     match /exports/{exportId} {
-      allow get: if isOwner(existing().userId) || isAdmin();
+      // Admins can list all. Users can only list their own.
       allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       
       allow create: if isSignedIn() && 
                        incoming().userId == request.auth.uid &&
@@ -69,7 +80,8 @@ service cloud.firestore {
 
     match /admins/{adminId} {
       allow read: if isSignedIn();
-      allow create: if isAdmin() && adminId == request.auth.uid;
+      // Only the master developer (with verified email) can create admins
+      allow create: if (request.auth.token.email == 'hakimmia370@gmail.com' && request.auth.token.email_verified == true) && adminId == request.auth.uid;
     }
   }
 }

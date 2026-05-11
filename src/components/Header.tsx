@@ -51,18 +51,20 @@ export function Header({ activeTab, onTabChange, user }: HeaderProps) {
           >
             ✦ SVG PLAYGROUND
           </button>
-          <button 
-            type="button"
-            onClick={() => onTabChange('admin')}
-            className={cn(
-              "font-mono text-[9px] font-bold tracking-[2px] px-4 py-2 rounded-full border transition-all uppercase whitespace-nowrap",
-              activeTab === 'admin' 
-                ? "bg-gradient-to-br from-pink-glow/20 to-purple-glow/15 border-pink-glow text-text-main shadow-[0_0_14px_rgba(255,61,127,0.2)]" 
-                : "border-border-b2 bg-pink-glow/5 text-text-dim hover:border-pink-glow hover:text-pink-glow"
-            )}
-          >
-            ⚙ ADMIN CMD
-          </button>
+          {user?.email === 'hakimmia370@gmail.com' && (
+            <button 
+              type="button"
+              onClick={() => onTabChange('admin')}
+              className={cn(
+                "font-mono text-[9px] font-bold tracking-[2px] px-4 py-2 rounded-full border transition-all uppercase whitespace-nowrap",
+                activeTab === 'admin' 
+                  ? "bg-gradient-to-br from-pink-glow/20 to-purple-glow/15 border-pink-glow text-text-main shadow-[0_0_14px_rgba(255,61,127,0.2)]" 
+                  : "border-border-b2 bg-pink-glow/5 text-text-dim hover:border-pink-glow hover:text-pink-glow"
+              )}
+            >
+              ⚙ ADMIN CMD
+            </button>
+          )}
         </nav>
 
         <div className="user-auth flex items-center gap-3 pl-4 border-l border-border-b1">

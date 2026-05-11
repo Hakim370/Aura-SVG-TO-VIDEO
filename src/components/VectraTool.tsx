@@ -63,6 +63,8 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
           limit: data.exportLimit || 5
         });
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${auth.currentUser?.uid}`);
     });
     return () => unsubscribe();
   }, [auth.currentUser]);
