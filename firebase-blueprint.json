@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and permissions",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLogin": { "type": "string", "format": "date-time" },
+        "exportCount": { "type": "number" },
+        "exportLimit": { "type": "number", "default": 5 },
+        "isBlocked": { "type": "boolean" }
+      },
+      "required": ["uid", "email", "role", "exportLimit"]
+    },
+    "Export": {
+      "title": "Export",
+      "description": "Metadata for a video export session",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": "number", "description": "Size in KB" },
+        "duration": { "type": "number" },
+        "fps": { "type": "number" },
+        "resolution": { "type": "string" },
+        "status": { "type": "string", "enum": ["completed", "failed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fileName", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "System users"
+    },
+    "/exports/{exportId}": {
+      "schema": "Export",
+      "description": "Global export logs for admin tracking"
+    }
+  }
+}

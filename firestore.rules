@@ -1,0 +1,88 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'hakimmia370@gmail.com'
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidUser(data) {
+      // Primary keys must be present
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt', 'isBlocked', 'exportLimit']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['user', 'admin'] &&
+             data.isBlocked is bool &&
+             data.exportLimit is number;
+    }
+
+    function isValidExport(data) {
+      return data.keys().hasAll(['userId', 'fileName', 'fileSize', 'duration', 'fps', 'resolution', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.status in ['completed', 'failed'] &&
+             data.fileSize is number;
+    }
+
+    // --- Collection Rules ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      
+      allow create: if isOwner(userId) && isValidUser(incoming()) && 
+                       incoming().role == 'user' && 
+                       incoming().exportLimit == 5 &&
+                       incoming().isBlocked == false &&
+                       incoming().createdAt == request.time;
+      
+      allow update: if (isOwner(userId) && 
+                        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastLogin', 'exportCount']) &&
+                        incoming().role == existing().role &&
+                        incoming().exportLimit == existing().exportLimit &&
+                        incoming().isBlocked == existing().isBlocked)
+                    || isAdmin();
+    }
+
+    match /exports/{exportId} {
+      allow get: if isOwner(existing().userId) || isAdmin();
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      allow create: if isSignedIn() && isValidExport(incoming()) && 
+                       incoming().createdAt == request.time &&
+                       (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBlocked) &&
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.exportCount < get(/databases/$(database)/documents/users/$(request.auth.uid)).data.exportLimit);
+      
+      allow update, delete: if isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+    }
+  }
+}

@@ -1,0 +1,179 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-bg: #020408;
+  --color-s1: #070d14;
+  --color-s2: #0c1520;
+  --color-s3: #111e2e;
+  --color-cyan-glow: #00d4ff;
+  --color-cyan-dim: #0099cc;
+  --color-pink-glow: #ff3d7f;
+  --color-gold-glow: #ffb800;
+  --color-green-glow: #00ff9d;
+  --color-purple-glow: #9b4dff;
+  --color-text-main: #e8f4ff;
+  --color-text-dim: rgba(180, 220, 255, 0.45);
+  
+  --border-b1: rgba(0, 200, 255, 0.06);
+  --border-b2: rgba(0, 200, 255, 0.13);
+  --border-b3: rgba(0, 200, 255, 0.22);
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-text-main font-sans min-h-screen overflow-x-hidden relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+}
+
+@keyframes gridpulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes da {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(80px, 60px) scale(1.12); }
+}
+
+@keyframes db {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-70px, -90px) scale(1.1); }
+}
+
+@keyframes dc {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-45%, -55%) scale(1.08); }
+}
+
+@keyframes dd {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes ticker-gradient {
+  0% { background-position: 0%; }
+  100% { background-position: 300%; }
+}
+
+@keyframes logo-shine {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.8); }
+}
+
+@keyframes scanline {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(200%); }
+}
+
+@keyframes scan-v {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+@keyframes button-shine {
+  to { left: 200%; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.bg-grid {
+  background-image: linear-gradient(rgba(0, 212, 255, 0.04) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(0, 212, 255, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridpulse 8s ease-in-out infinite;
+}
+
+.orb {
+  @apply absolute rounded-full blur-[100px];
+}
+
+.ticker-animate {
+  animation: ticker-scroll 35s linear infinite;
+}
+
+.ticker-gradient-animate {
+  background-size: 300% 100%;
+  animation: ticker-gradient 4s linear infinite;
+}
+
+.scan-line-animate {
+  animation: scan-v 4s linear infinite;
+}
+
+.logo-shine-animate::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  animation: logo-shine 3s infinite;
+}
+
+.button-shine-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.button-shine-effect::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  animation: button-shine 3s infinite;
+  z-index: 2;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-s2;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.2);
+  border-radius: 2px;
+}
+
+input[type=range] {
+  @apply appearance-none cursor-pointer outline-none bg-white/10 rounded-full h-1;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 rounded-full bg-cyan-glow shadow-[0_0_12px_rgba(0,212,255,0.7)];
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
