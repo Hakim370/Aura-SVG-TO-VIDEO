@@ -116,8 +116,8 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
 
   const saveSettings = async () => {
     if (!auth.currentUser) {
-      toast.error('Sign in to save settings to cloud');
-      loginWithGoogle();
+      toast.error('Authentication Required: Please login to save settings');
+      loginWithGoogle().catch(err => toast.error(err.message || 'Login failed'));
       return;
     }
 
@@ -187,7 +187,7 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
 
     if (!auth.currentUser) {
       toast.error('Authentication Required: Please login to convert SVG to video');
-      loginWithGoogle();
+      loginWithGoogle().catch(err => toast.error(err.message || 'Login failed'));
       return;
     }
 

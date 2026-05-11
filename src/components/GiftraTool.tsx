@@ -127,7 +127,7 @@ export function GiftraTool({ initialSVG, clearInitialSVG }: GiftraToolProps) {
 
     if (!auth.currentUser) {
       toast.error('Authentication Required: Please login to create GIFs');
-      loginWithGoogle();
+      loginWithGoogle().catch(err => toast.error(err.message || 'Login failed'));
       return;
     }
 

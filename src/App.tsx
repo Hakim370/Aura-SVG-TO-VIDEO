@@ -25,9 +25,12 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      try {
-        if (u) {
-          // Sync user to Firestore
+      if (u) {
+        setUser(u); // Set user immediately
+        setLoading(false); // Stop loading immediately
+        
+        try {
+          // Sync user to Firestore in the background
           const userRef = doc(db, 'users', u.uid);
           const userSnap = await getDoc(userRef);
           
@@ -58,21 +61,36 @@ export default function App() {
               lastLogin: serverTimestamp()
             }, { merge: true });
           }
-          setUser(u);
-        } else {
-          setUser(null);
+        } catch (err: any) {
+          console.error("Firestore sync error:", err);
+          // Don't log out the user, just notify
+          toast.error("Cloud data sync failed. Some features might be restricted.");
         }
-      } catch (err: any) {
-        console.error("Auth sync error:", err);
-        toast.error("Account sync failed. Please try again.");
-        setUser(null); // Force logout state if sync fails
-      } finally {
+      } else {
+        setUser(null);
         setLoading(false);
       }
     });
 
     return () => unsubscribe();
   }, []);
+
+  const handleLogin = async () => {
+    try {
+      await loginWithGoogle();
+      toast.success('Session Initiated');
+    } catch (err: any) {
+      console.error("Login attempt failed:", err);
+      toast.error(err.message || 'Login failed');
+      
+      if (err.message.includes('authorized domains')) {
+        toast('Diagnostic: Add ' + window.location.hostname + ' to Firebase Auth settings.', {
+          icon: '🛡️',
+          duration: 6000
+        });
+      }
+    }
+  };
 
   const handleSendToAura = useCallback((svg: string) => {
     setPlaygroundSVG(svg);
@@ -131,7 +149,7 @@ export default function App() {
                   </p>
 
                   <button 
-                    onClick={() => loginWithGoogle()}
+                    onClick={handleLogin}
                     className="w-full py-4 bg-gradient-to-r from-cyan-glow to-purple-glow rounded-2xl text-white font-bold text-sm tracking-[5px] uppercase shadow-[0_10px_30px_rgba(0,212,255,0.3)] hover:-translate-y-1 hover:shadow-[0_15px_45px_rgba(0,212,255,0.45)] transition-all flex items-center justify-center gap-3 group/btn relative overflow-hidden"
                   >
                     <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
