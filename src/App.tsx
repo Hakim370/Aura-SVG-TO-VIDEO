@@ -25,41 +25,50 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        // Sync user to Firestore
-        const userRef = doc(db, 'users', u.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (!userSnap.exists()) {
-          const isMaster = u.email === 'hakimmia370@gmail.com';
-          const newUser = {
-            uid: u.uid,
-            email: u.email,
-            displayName: u.displayName,
-            photoURL: u.photoURL,
-            role: isMaster ? 'admin' : 'user',
-            createdAt: serverTimestamp(),
-            lastLogin: serverTimestamp(),
-            exportCount: 0,
-            exportLimit: isMaster ? 999999 : 5,
-            isBlocked: false
-          };
-          await setDoc(userRef, newUser);
+      try {
+        if (u) {
+          // Sync user to Firestore
+          const userRef = doc(db, 'users', u.uid);
+          const userSnap = await getDoc(userRef);
           
-          if (isMaster) {
-            await setDoc(doc(db, 'admins', u.uid), {
+          if (!userSnap.exists()) {
+            const isMaster = u.email === 'hakimmia370@gmail.com';
+            const newUser = {
+              uid: u.uid,
               email: u.email,
-              createdAt: serverTimestamp()
-            });
+              displayName: u.displayName,
+              photoURL: u.photoURL,
+              role: isMaster ? 'admin' : 'user',
+              createdAt: serverTimestamp(),
+              lastLogin: serverTimestamp(),
+              exportCount: 0,
+              exportLimit: isMaster ? 999999 : 5,
+              isBlocked: false
+            };
+            await setDoc(userRef, newUser);
+            
+            if (isMaster) {
+              await setDoc(doc(db, 'admins', u.uid), {
+                email: u.email,
+                createdAt: serverTimestamp()
+              });
+            }
+          } else {
+            await setDoc(userRef, {
+              lastLogin: serverTimestamp()
+            }, { merge: true });
           }
+          setUser(u);
         } else {
-          await setDoc(userRef, {
-            lastLogin: serverTimestamp()
-          }, { merge: true });
+          setUser(null);
         }
+      } catch (err: any) {
+        console.error("Auth sync error:", err);
+        toast.error("Account sync failed. Please try again.");
+        setUser(null); // Force logout state if sync fails
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
