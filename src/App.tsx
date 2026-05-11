@@ -94,7 +94,7 @@ export default function App() {
       <Ticker />
       <Header activeTab={activeTab} onTabChange={setActiveTab} user={user} />
 
-      <main className="flex-1">
+      <main className="flex-1 flex flex-col">
         {activeTab === 'aura' && (
           <VectraTool initialSVG={playgroundSVG} clearInitialSVG={() => setPlaygroundSVG(null)} />
         )}
@@ -105,7 +105,45 @@ export default function App() {
           <GiftraTool initialSVG={playgroundSVG} clearInitialSVG={() => setPlaygroundSVG(null)} />
         )}
         {activeTab === 'admin' && (
-          <AdminDashboard />
+          !user ? (
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="max-w-md w-full bg-s1/40 border border-border-b1 backdrop-blur-xl rounded-[32px] p-8 md:p-12 text-center relative overflow-hidden group shadow-[0_0_80px_rgba(0,212,255,0.08)]">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(0,212,255,0.1),transparent_70%)]" />
+                
+                <div className="relative z-10">
+                  <div className="w-24 h-24 mx-auto mb-8 bg-gradient-to-br from-cyan-glow to-purple-glow rounded-3xl flex items-center justify-center font-black text-5xl text-white shadow-[0_0_50px_rgba(0,212,255,0.4)] animate-pulse">
+                    A
+                  </div>
+                  
+                  <h1 className="text-3xl font-black text-white mb-3 tracking-tighter uppercase tracking-[4px]">Access Restricted</h1>
+                  <p className="font-mono text-[11px] text-text-dim mb-10 leading-relaxed uppercase tracking-widest">
+                    Secure Clearance Level Required <br/> 
+                    <span className="opacity-50 underline decoration-cyan-glow/30 underline-offset-4">Vectra AURA Studio</span> Engine
+                  </p>
+
+                  <button 
+                    onClick={() => loginWithGoogle()}
+                    className="w-full py-4 bg-gradient-to-r from-cyan-glow to-purple-glow rounded-2xl text-white font-bold text-sm tracking-[5px] uppercase shadow-[0_10px_30px_rgba(0,212,255,0.3)] hover:-translate-y-1 hover:shadow-[0_15px_45px_rgba(0,212,255,0.45)] transition-all flex items-center justify-center gap-3 group/btn relative overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                    INITIATE LOGIN
+                  </button>
+                  
+                  <div className="mt-8 pt-8 border-t border-white/5">
+                    <div className="flex items-center justify-center gap-8 opacity-40 grayscale hover:grayscale-0 transition-all duration-700">
+                      <span className="font-mono text-[8px] tracking-[3px] text-text-dim uppercase">Enterprise Grade</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                      <span className="font-mono text-[8px] tracking-[3px] text-text-dim uppercase">Encrypted Session</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="sh absolute top-0 -left-full w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent animate-[sh_4s_infinite]" />
+              </div>
+            </div>
+          ) : (
+            <AdminDashboard />
+          )
         )}
       </main>
 

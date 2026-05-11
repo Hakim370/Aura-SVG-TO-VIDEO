@@ -115,6 +115,12 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
   }, []);
 
   const saveSettings = async () => {
+    if (!auth.currentUser) {
+      toast.error('Sign in to save settings to cloud');
+      loginWithGoogle();
+      return;
+    }
+
     const settings = {
       resolution,
       fps,
@@ -126,17 +132,13 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
     
     localStorage.setItem('vectra_settings', JSON.stringify(settings));
     
-    if (auth.currentUser) {
-      try {
-        await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-          lastSettings: settings
-        });
-        toast.success('Settings saved to cloud');
-      } catch (err: any) {
-        handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
-      }
-    } else {
-      toast.success('Settings saved locally');
+    try {
+      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+        lastSettings: settings
+      });
+      toast.success('Settings saved to cloud');
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
     }
   };
 
@@ -184,7 +186,7 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
     if (!svgText || !svgFile) return;
 
     if (!auth.currentUser) {
-      toast.error('Authentication required for processing');
+      toast.error('Authentication Required: Please login to convert SVG to video');
       loginWithGoogle();
       return;
     }
