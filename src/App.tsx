@@ -31,18 +31,27 @@ export default function App() {
         const userSnap = await getDoc(userRef);
         
         if (!userSnap.exists()) {
-          await setDoc(userRef, {
+          const isMaster = u.email === 'hakimmia370@gmail.com';
+          const newUser = {
             uid: u.uid,
             email: u.email,
             displayName: u.displayName,
             photoURL: u.photoURL,
-            role: 'user',
+            role: isMaster ? 'admin' : 'user',
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
             exportCount: 0,
-            exportLimit: 5,
+            exportLimit: isMaster ? 999999 : 5,
             isBlocked: false
-          });
+          };
+          await setDoc(userRef, newUser);
+          
+          if (isMaster) {
+            await setDoc(doc(db, 'admins', u.uid), {
+              email: u.email,
+              createdAt: serverTimestamp()
+            });
+          }
         } else {
           await setDoc(userRef, {
             lastLogin: serverTimestamp()
@@ -82,7 +91,7 @@ export default function App() {
       </div>
 
       <Ticker />
-      <Header activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header activeTab={activeTab} onTabChange={setActiveTab} user={user} />
 
       <main className="flex-1">
         {activeTab === 'aura' && (

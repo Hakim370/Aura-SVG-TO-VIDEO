@@ -6,10 +6,10 @@ import { LucideLogOut, LucideLogIn, LucideUser } from 'lucide-react';
 interface HeaderProps {
   activeTab: Tab;
   onTabChange: (tab: Tab) => void;
+  user: any;
 }
 
-export function Header({ activeTab, onTabChange }: HeaderProps) {
-  const user = auth.currentUser;
+export function Header({ activeTab, onTabChange, user }: HeaderProps) {
 
   return (
     <header className="flex items-center justify-between px-4 md:px-9 py-4 border-b border-border-b2 backdrop-blur-3xl bg-bg/80 sticky top-0 z-[99]">

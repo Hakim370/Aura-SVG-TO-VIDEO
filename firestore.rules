@@ -11,14 +11,18 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     function isAdmin() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == 'hakimmia370@gmail.com'
+        request.auth.token.email == 'hakimmia370@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
@@ -30,59 +34,42 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // --- Validation Helpers ---
-
-    function isValidUser(data) {
-      // Primary keys must be present
-      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt', 'isBlocked', 'exportLimit']) &&
-             data.uid is string &&
-             data.email is string &&
-             data.role in ['user', 'admin'] &&
-             data.isBlocked is bool &&
-             data.exportLimit is number;
-    }
-
-    function isValidExport(data) {
-      return data.keys().hasAll(['userId', 'fileName', 'fileSize', 'duration', 'fps', 'resolution', 'status', 'createdAt']) &&
-             data.userId == request.auth.uid &&
-             data.status in ['completed', 'failed'] &&
-             data.fileSize is number;
-    }
-
     // --- Collection Rules ---
+
+    // Connection test document
+    match /test/connection {
+      allow read: if true;
+    }
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       
-      allow create: if isOwner(userId) && isValidUser(incoming()) && 
-                       incoming().role == 'user' && 
-                       incoming().exportLimit == 5 &&
-                       incoming().isBlocked == false &&
-                       incoming().createdAt == request.time;
+      allow create: if isOwner(userId);
       
       allow update: if (isOwner(userId) && 
-                        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'lastLogin', 'exportCount']) &&
-                        incoming().role == existing().role &&
-                        incoming().exportLimit == existing().exportLimit &&
-                        incoming().isBlocked == existing().isBlocked)
-                    || isAdmin();
+                         incoming().get('role', 'user') == existing().get('role', 'user') &&
+                         incoming().get('exportLimit', 5) == existing().get('exportLimit', 5) &&
+                         incoming().get('isBlocked', false) == existing().get('isBlocked', false))
+                     || isAdmin();
     }
 
     match /exports/{exportId} {
       allow get: if isOwner(existing().userId) || isAdmin();
       allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       
-      allow create: if isSignedIn() && isValidExport(incoming()) && 
+      allow create: if isSignedIn() && 
+                       incoming().userId == request.auth.uid &&
                        incoming().createdAt == request.time &&
-                       (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBlocked) &&
-                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.exportCount < get(/databases/$(database)/documents/users/$(request.auth.uid)).data.exportLimit);
+                       (!get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isBlocked', false)) &&
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('exportCount', 0) < get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('exportLimit', 5));
       
       allow update, delete: if isAdmin();
     }
 
     match /admins/{adminId} {
       allow read: if isSignedIn();
+      allow create: if isAdmin() && adminId == request.auth.uid;
     }
   }
 }
