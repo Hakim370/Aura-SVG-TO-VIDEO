@@ -12,11 +12,15 @@
         "role": { "type": "string", "enum": ["user", "admin"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "lastLogin": { "type": "string", "format": "date-time" },
+        "auraCount": { "type": "number", "default": 0 },
+        "auraLimit": { "type": "number", "default": 50 },
+        "batchCount": { "type": "number", "default": 0 },
+        "batchLimit": { "type": "number", "default": 10 },
         "exportCount": { "type": "number" },
         "exportLimit": { "type": "number", "default": 5 },
         "isBlocked": { "type": "boolean" }
       },
-      "required": ["uid", "email", "role", "exportLimit"]
+      "required": ["uid", "email", "role", "auraLimit", "batchLimit"]
     },
     "Export": {
       "title": "Export",

@@ -63,19 +63,25 @@ export function GiftraTool({ initialSVG, clearInitialSVG }: GiftraToolProps) {
 
     if (!auth.currentUser) return () => unsubNews();
     
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    const unsubUser = onSnapshot(userRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        setIsBlocked(data.isBlocked || false);
-        setUserStats({
-          count: data.exportCount || 0,
-          limit: data.exportLimit || 5
-        });
-      }
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${auth.currentUser?.uid}`);
-    });
+    let unsubUser = () => {};
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      unsubUser = onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          setIsBlocked(data.isBlocked || false);
+          setUserStats({
+            count: data.exportCount || 0,
+            limit: data.exportLimit || 100
+          });
+        }
+      }, (error) => {
+        console.warn('User data restricted:', error.message);
+      });
+    } catch (e) {
+      console.warn('Auth snapshot skipped');
+    }
+
     return () => {
       unsubNews();
       unsubUser();
@@ -125,19 +131,19 @@ export function GiftraTool({ initialSVG, clearInitialSVG }: GiftraToolProps) {
   const doConvert = async () => {
     if (!svgText || !svgFile) return;
 
-    if (!auth.currentUser) {
-      toast.error('Authentication Required: Please login to create GIFs');
-      loginWithGoogle().catch(err => toast.error(err.message || 'Login failed'));
-      return;
-    }
-
     if (isBlocked) {
       toast.error('Access restricted');
       return;
     }
 
-    if (userStats.count >= userStats.limit) {
+    if (auth.currentUser && userStats.count >= userStats.limit) {
       toast.error('Export limit reached');
+      return;
+    }
+
+    // Guest limit
+    if (!auth.currentUser && userStats.count >= 50) {
+      toast.error('Guest limit reached. Please sign in for more.');
       return;
     }
 
@@ -229,6 +235,9 @@ export function GiftraTool({ initialSVG, clearInitialSVG }: GiftraToolProps) {
     setStatus('✓ GIF Ready!');
     setIsRendering(false);
     addLog(`Complete — ${kb}KB`, 'success');
+    
+    // Update local counter
+    setUserStats(prev => ({ ...prev, count: prev.count + 1 }));
 
     if (auth.currentUser) {
       try {
@@ -248,7 +257,7 @@ export function GiftraTool({ initialSVG, clearInitialSVG }: GiftraToolProps) {
           exportCount: increment(1)
         });
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, 'exports');
+        console.warn('Cloud logging skipped:', err);
       }
     }
     

@@ -33,6 +33,7 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
   const [isBlocked, setIsBlocked] = useState(false);
   const [userStats, setUserStats] = useState({ count: 0, limit: 5 });
   const [news, setNews] = useState<string | null>(null);
+  const [engineConfig, setEngineConfig] = useState({ maxDuration: 60, maxFPS: 60 });
   
   // Render Stats
   const [stats, setStats] = useState({
@@ -47,53 +48,64 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
   const [fps, setFps] = useState(30);
   const [duration, setDuration] = useState(6);
   const [bg, setBg] = useState('#000000');
-  const [quality, setQuality] = useState(85);
-  const [format, setFormat] = useState<'webm' | 'mp4'>('webm');
+  const [quality, setQuality] = useState(95);
+  const [format, setFormat] = useState<'webm' | 'mp4'>('mp4');
 
   const abortRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Check block status
   useEffect(() => {
-    // Fetch Global News/Ad
-    const newsRef = doc(db, 'settings', 'global');
-    const unsubNews = onSnapshot(newsRef, (doc) => {
-      if (doc.exists()) {
-        setNews(doc.data().news || null);
-      }
-    }, (error) => {
-      console.warn('Global news feed restricted:', error.message);
-    });
-
-    if (!auth.currentUser) return () => unsubNews();
-    
-    const userRef = doc(db, 'users', auth.currentUser.uid);
-    const unsubscribe = onSnapshot(userRef, (doc) => {
+    // Fetch Global Settings
+    const settingsRef = doc(db, 'settings', 'global');
+    const unsubSettings = onSnapshot(settingsRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data();
-        setIsBlocked(data.isBlocked || false);
-        setUserStats({
-          count: data.exportCount || 0,
-          limit: data.exportLimit || 5
+        setNews(data.news || null);
+        setEngineConfig({
+          maxDuration: data.maxDuration || 60,
+          maxFPS: data.maxFPS || 60
         });
-
-        // Load saved settings if any
-        if (data.lastSettings) {
-          const s = data.lastSettings;
-          if (s.resolution) setResolution(s.resolution);
-          if (s.fps) setFps(s.fps);
-          if (s.duration) setDuration(s.duration);
-          if (s.bg) setBg(s.bg);
-          if (s.quality) setQuality(s.quality);
-          if (s.format) setFormat(s.format);
-        }
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `users/${auth.currentUser?.uid}`);
+      console.warn('Global settings restricted:', error.message);
     });
+
+    if (!auth.currentUser) return () => unsubSettings();
+    
+    let unsubUser = () => {};
+    try {
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      unsubUser = onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          setIsBlocked(data.isBlocked || false);
+          setUserStats({
+            count: data.auraCount || 0,
+            limit: data.auraLimit || 50
+          });
+
+          // Load saved settings if any
+          if (data.lastSettings) {
+            const s = data.lastSettings;
+            if (s.resolution) setResolution(s.resolution);
+            if (s.fps) setFps(s.fps);
+            if (s.duration) setDuration(s.duration);
+            if (s.bg) setBg(s.bg);
+            if (s.quality) setQuality(s.quality);
+            if (s.format) setFormat(s.format);
+          }
+        }
+      }, (error) => {
+        console.warn('User data restriction:', error.message);
+      });
+    } catch (e) {
+      console.warn('Auth snapshot skipped');
+    }
+
     return () => {
-      unsubNews();
-      unsubscribe();
+      unsubSettings();
+      unsubUser();
     };
   }, [auth.currentUser]);
 
@@ -115,12 +127,6 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
   }, []);
 
   const saveSettings = async () => {
-    if (!auth.currentUser) {
-      toast.error('Authentication Required: Please login to save settings');
-      loginWithGoogle().catch(err => toast.error(err.message || 'Login failed'));
-      return;
-    }
-
     const settings = {
       resolution,
       fps,
@@ -131,14 +137,17 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
     };
     
     localStorage.setItem('vectra_settings', JSON.stringify(settings));
+    toast.success('Settings saved locally');
     
-    try {
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-        lastSettings: settings
-      });
-      toast.success('Settings saved to cloud');
-    } catch (err: any) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${auth.currentUser.uid}`);
+    if (auth.currentUser) {
+      try {
+        await updateDoc(doc(db, 'users', auth.currentUser.uid), {
+          lastSettings: settings
+        });
+        toast.success('Synced to cloud');
+      } catch (err: any) {
+        console.warn('Cloud sync failed:', err.message);
+      }
     }
   };
 
@@ -185,19 +194,19 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
   const doConvert = async () => {
     if (!svgText || !svgFile) return;
 
-    if (!auth.currentUser) {
-      toast.error('Authentication Required: Please login to convert SVG to video');
-      loginWithGoogle().catch(err => toast.error(err.message || 'Login failed'));
-      return;
-    }
-
     if (isBlocked) {
       toast.error('Your access to AURA Engine is restricted');
       return;
     }
 
-    if (userStats.count >= userStats.limit) {
-      toast.error(`Export limit reached (${userStats.limit}). Contact admin for more exports.`);
+    // Relaxed limit check for guest users
+    if (!auth.currentUser && userStats.count >= 50) {
+      toast.error(`Local export limit reached. Please reload or sign in for more.`);
+      return;
+    }
+
+    if (auth.currentUser && userStats.count >= userStats.limit) {
+      toast.error(`Cloud export limit reached (${userStats.limit}). Contact admin for more.`);
       return;
     }
 
@@ -322,7 +331,13 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
       codecStr = 'V_VP8';
     }
 
-    encoder.configure({ codec, width: W, height: H, bitrate: Math.round(q * 5000000), framerate: fps });
+    encoder.configure({
+      codec,
+      width: W,
+      height: H,
+      bitrate: Math.round(q * 25000000), // High quality WebM: 25Mbps
+      framerate: fps
+    });
     addLog(`Codec: ${codecStr}`, 'info');
 
     const canvas = document.createElement('canvas');
@@ -373,7 +388,10 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
     const mime = MediaRecorder.isTypeSupported('video/webm; codecs=vp9') ? 'video/webm; codecs=vp9' : 'video/webm';
     const stream = canvas.captureStream(fps);
     const chunks: Blob[] = [];
-    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: Math.round(q * 5000000) });
+    const rec = new MediaRecorder(stream, { 
+      mimeType: mime, 
+      videoBitsPerSecond: Math.round(q * 25000000) // Fallback high bitrate 
+    });
     rec.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
     
     const done = new Promise(resolve => rec.onstop = resolve);
@@ -415,8 +433,11 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
     setStatus('✓ Done!');
     setIsRendering(false);
     addLog(`Complete — ${total} frames · ${elapsed}s · ${kb}KB`, 'success');
+    
+    // Update local counter
+    setUserStats(prev => ({ ...prev, count: prev.count + 1 }));
 
-    // Firestore Integration
+    // Firestore Integration (Optional)
     if (auth.currentUser) {
       try {
         const fileName = svgFile?.name.replace(/\.svg$/i, '') || 'aura';
@@ -435,10 +456,11 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
 
         // Increment User Stats
         await updateDoc(doc(db, 'users', auth.currentUser.uid), {
-          exportCount: increment(1)
+          auraCount: increment(1),
+          exportCount: increment(1) // Keep global count too
         });
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, 'exports or users');
+        console.warn('Cloud logging skipped:', err);
       }
     }
     
@@ -575,9 +597,12 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
                   type="number" 
                   value={duration} 
                   onChange={(e) => setDuration(Number(e.target.value))}
-                  min={1} max={120}
+                  min={1} max={engineConfig.maxDuration}
                   className="bg-s2 border border-border-b2 rounded-lg p-2.5 text-text-main font-mono text-[10px] outline-none hover:border-cyan-glow/50 transition-all"
                 />
+                <div className="text-[7px] font-mono text-text-dim mt-1 uppercase tracking-widest">
+                  Admin Limit: {engineConfig.maxDuration}s
+                </div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="font-mono text-[8px] text-text-dim tracking-[2px] uppercase">Background</label>
@@ -763,13 +788,21 @@ export function VectraTool({ initialSVG, clearInitialSVG }: VectraToolProps) {
                    style={{ width: `${Math.min(100, (userStats.count / userStats.limit) * 100)}%` }}
                  />
                </div>
-               <p className="mt-2 font-mono text-[7px] text-text-dim tracking-wider uppercase opacity-50">
-                 {userStats.limit - userStats.count} Conversions remaining
-               </p>
-               {userStats.count >= userStats.limit && (
-                 <div className="mt-2 py-1 px-2 bg-pink-glow/10 border border-pink-glow/20 rounded text-pink-glow font-mono text-[7px] text-center font-bold tracking-widest">
-                   LIMIT REACHED — CONTACT SUPPORT
-                 </div>
+               
+               {userStats.count >= userStats.limit ? (
+                 <a 
+                   href="https://wa.me/8801761709821" 
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   className="mt-4 flex items-center justify-center gap-2 w-full py-2 bg-pink-glow/10 border border-pink-glow/20 rounded-xl text-pink-glow font-mono text-[9px] font-bold tracking-[2px] uppercase hover:bg-pink-glow/20 transition-all shadow-[0_0_15px_rgba(255,61,127,0.1)]"
+                 >
+                   <LucideAlertCircle size={12} />
+                   Get Support
+                 </a>
+               ) : (
+                 <p className="mt-3 font-mono text-[7px] text-text-dim tracking-widest uppercase opacity-60">
+                   {userStats.limit - userStats.count} Conversions remaining
+                 </p>
                )}
             </div>
           </div>

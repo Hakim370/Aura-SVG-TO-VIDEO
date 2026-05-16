@@ -8,6 +8,7 @@ import { Header } from './components/Header';
 import { Ticker } from './components/Ticker';
 import { VectraTool } from './components/VectraTool';
 import { GiftraTool } from './components/GiftraTool';
+import { BatchTool } from './components/BatchTool';
 import { Playground } from './components/Playground';
 import { AdminDashboard } from './components/AdminDashboard';
 import { Toaster, toast } from 'react-hot-toast';
@@ -15,19 +16,18 @@ import { auth, db, loginWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-export type Tab = 'aura' | 'playground' | 'gif' | 'admin';
+export type Tab = 'aura' | 'playground' | 'gif' | 'batch' | 'admin';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('aura');
   const [playgroundSVG, setPlaygroundSVG] = useState<string | null>(null);
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (u) {
-        setUser(u); // Set user immediately
-        setLoading(false); // Stop loading immediately
+        setUser(u);
         
         try {
           // Sync user to Firestore in the background
@@ -45,7 +45,11 @@ export default function App() {
               createdAt: serverTimestamp(),
               lastLogin: serverTimestamp(),
               exportCount: 0,
-              exportLimit: isMaster ? 999999 : 5,
+              auraCount: 0,
+              auraLimit: isMaster ? 999999 : 5,
+              batchCount: 0,
+              batchLimit: isMaster ? 999999 : 5,
+              exportLimit: isMaster ? 999999 : 50,
               isBlocked: false
             };
             await setDoc(userRef, newUser);
@@ -62,13 +66,10 @@ export default function App() {
             }, { merge: true });
           }
         } catch (err: any) {
-          console.error("Firestore sync error:", err);
-          // Don't log out the user, just notify
-          toast.error("Cloud data sync failed. Some features might be restricted.");
+          console.warn("Cloud sync skipped or failed:", err.message);
         }
       } else {
         setUser(null);
-        setLoading(false);
       }
     });
 
@@ -130,6 +131,9 @@ export default function App() {
         )}
         {activeTab === 'gif' && (
           <GiftraTool initialSVG={playgroundSVG} clearInitialSVG={() => setPlaygroundSVG(null)} />
+        )}
+        {activeTab === 'batch' && (
+          <BatchTool />
         )}
         {activeTab === 'admin' && (
           !user ? (

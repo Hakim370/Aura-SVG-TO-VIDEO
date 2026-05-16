@@ -26,6 +26,10 @@ interface AppUser {
   displayName: string;
   photoURL: string;
   role: string;
+  auraCount: number;
+  auraLimit: number;
+  batchCount: number;
+  batchLimit: number;
   exportCount: number;
   exportLimit: number;
   isBlocked: boolean;
@@ -74,7 +78,9 @@ export function AdminDashboard() {
         const data = snap.data();
         setEngineSettings(prev => ({
           ...prev,
-          news: data.news || ''
+          news: data.news || '',
+          maxDuration: data.maxDuration || 60,
+          maxFPS: data.maxFPS || 60
         }));
       }
 
@@ -134,13 +140,23 @@ export function AdminDashboard() {
     }
   };
 
-  const updateUserLimit = async (user: AppUser, newLimit: number) => {
+  const updateAuraLimit = async (user: AppUser, newLimit: number) => {
     try {
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, { exportLimit: newLimit });
-      toast.success(`Limit updated to ${newLimit} for ${user.displayName}`);
+      await updateDoc(userRef, { auraLimit: newLimit });
+      toast.success(`Aura limit updated for ${user.displayName}`);
     } catch (err) {
-      toast.error('Failed to update limits');
+      toast.error('Failed to update Aura limit');
+    }
+  };
+
+  const updateBatchLimit = async (user: AppUser, newLimit: number) => {
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, { batchLimit: newLimit });
+      toast.success(`Batch limit updated for ${user.displayName}`);
+    } catch (err) {
+      toast.error('Failed to update Batch limit');
     }
   };
 
@@ -196,9 +212,11 @@ export function AdminDashboard() {
     try {
       await setDoc(doc(db, 'settings', 'global'), {
         news: engineSettings.news,
+        maxDuration: engineSettings.maxDuration,
+        maxFPS: engineSettings.maxFPS,
         updatedAt: serverTimestamp()
       }, { merge: true });
-      toast.success('Global settings updated');
+      toast.success('Global configuration updated');
     } catch (err) {
       toast.error('Failed to save settings');
     }
@@ -459,8 +477,8 @@ export function AdminDashboard() {
                     <thead>
                       <tr className="border-b border-border-b1 bg-black/20">
                         <th className="px-6 py-4 text-left font-mono text-[8px] text-text-dim tracking-widest uppercase">User Details</th>
-                        <th className="px-6 py-4 text-center font-mono text-[8px] text-text-dim tracking-widest uppercase">Exports</th>
-                        <th className="px-6 py-4 text-center font-mono text-[8px] text-text-dim tracking-widest uppercase">Limit</th>
+                        <th className="px-6 py-4 text-center font-mono text-[8px] text-text-dim tracking-widest uppercase">Aura Studio</th>
+                        <th className="px-6 py-4 text-center font-mono text-[8px] text-text-dim tracking-widest uppercase">Batch Tool</th>
                         <th className="px-6 py-4 text-center font-mono text-[8px] text-text-dim tracking-widest uppercase">Status</th>
                         <th className="px-6 py-4 text-right font-mono text-[8px] text-text-dim tracking-widest uppercase">Action</th>
                       </tr>
@@ -481,21 +499,40 @@ export function AdminDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <div className="inline-flex flex-col items-center">
-                              <span className="text-sm font-black font-mono text-cyan-glow">{u.exportCount || 0}</span>
-                              <span className="text-[7px] font-mono text-text-dim uppercase tracking-tighter">Conversions</span>
+                            <div className="flex flex-col items-center gap-2">
+                               <div className="flex items-center gap-1.5 font-mono text-[9px]">
+                                  <span className="text-cyan-glow font-bold">{u.auraCount || 0}</span>
+                                  <span className="text-text-dim">/</span>
+                                  <select 
+                                    value={u.auraLimit || 5}
+                                    onChange={(e) => updateAuraLimit(u, Number(e.target.value))}
+                                    className="bg-black/40 border border-white/5 rounded px-1.5 py-0.5 text-cyan-glow outline-none cursor-pointer"
+                                  >
+                                    {[5, 10, 20, 50, 100, 200, 500, 1000].map(v => <option key={v} value={v}>{v}</option>)}
+                                  </select>
+                               </div>
+                               <div className="h-1 w-16 bg-white/5 rounded-full overflow-hidden">
+                                  <div className="h-full bg-cyan-glow" style={{ width: `${Math.min(100, ((u.auraCount || 0) / (u.auraLimit || 5)) * 100)}%` }} />
+                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4 text-center">
-                            <select 
-                              value={u.exportLimit || 5}
-                              onChange={(e) => updateUserLimit(u, Number(e.target.value))}
-                              className="bg-s2/80 border border-border-b2 rounded-lg py-1 px-2 text-[10px] font-mono text-cyan-glow outline-none cursor-pointer hover:border-cyan-glow/30"
-                            >
-                              {[5, 10, 20, 50, 100, 200, 300, 500, 1000].map(val => (
-                                <option key={val} value={val}>{val}</option>
-                              ))}
-                            </select>
+                             <div className="flex flex-col items-center gap-2">
+                               <div className="flex items-center gap-1.5 font-mono text-[9px]">
+                                  <span className="text-purple-glow font-bold">{u.batchCount || 0}</span>
+                                  <span className="text-text-dim">/</span>
+                                  <select 
+                                    value={u.batchLimit || 5}
+                                    onChange={(e) => updateBatchLimit(u, Number(e.target.value))}
+                                    className="bg-black/40 border border-white/5 rounded px-1.5 py-0.5 text-purple-glow outline-none cursor-pointer"
+                                  >
+                                    {[5, 10, 20, 50, 100, 200].map(v => <option key={v} value={v}>{v}</option>)}
+                                  </select>
+                               </div>
+                               <div className="h-1 w-16 bg-white/5 rounded-full overflow-hidden">
+                                  <div className="h-full bg-purple-glow" style={{ width: `${Math.min(100, ((u.batchCount || 0) / (u.batchLimit || 5)) * 100)}%` }} />
+                               </div>
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-center">
                             {u.isBlocked ? (

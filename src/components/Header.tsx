@@ -41,6 +41,18 @@ export function Header({ activeTab, onTabChange, user }: HeaderProps) {
           </button>
           <button 
             type="button"
+            onClick={() => onTabChange('playground')}
+            className={cn(
+              "font-mono text-[9px] font-bold tracking-[2px] px-4 py-2 rounded-full border transition-all uppercase whitespace-nowrap",
+              activeTab === 'playground' 
+                ? "bg-gradient-to-br from-cyan-glow/20 to-purple-glow/15 border-cyan-glow text-text-main shadow-[0_0_14px_rgba(0,212,255,0.25)]" 
+                : "border-border-b2 bg-cyan-glow/5 text-text-dim hover:border-cyan-glow hover:text-cyan-glow"
+            )}
+          >
+            ✦ SVG PLAYGROUND
+          </button>
+          <button 
+            type="button"
             onClick={() => onTabChange('gif')}
             className={cn(
               "font-mono text-[9px] font-bold tracking-[2px] px-4 py-2 rounded-full border transition-all uppercase whitespace-nowrap",
@@ -53,15 +65,15 @@ export function Header({ activeTab, onTabChange, user }: HeaderProps) {
           </button>
           <button 
             type="button"
-            onClick={() => onTabChange('playground')}
+            onClick={() => onTabChange('batch')}
             className={cn(
               "font-mono text-[9px] font-bold tracking-[2px] px-4 py-2 rounded-full border transition-all uppercase whitespace-nowrap",
-              activeTab === 'playground' 
+              activeTab === 'batch' 
                 ? "bg-gradient-to-br from-cyan-glow/20 to-purple-glow/15 border-cyan-glow text-text-main shadow-[0_0_14px_rgba(0,212,255,0.25)]" 
                 : "border-border-b2 bg-cyan-glow/5 text-text-dim hover:border-cyan-glow hover:text-cyan-glow"
             )}
           >
-            ✦ SVG PLAYGROUND
+            📦 BATCH
           </button>
           {user?.email === 'hakimmia370@gmail.com' && (
             <button 
